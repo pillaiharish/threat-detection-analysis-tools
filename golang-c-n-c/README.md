@@ -55,9 +55,10 @@ This project captures photos using the webcam and obtains the user's geolocation
 
 ## Camera and Location permission request
 
-![Cam and location permission request](https://github.com/pillaiharish/network-packet-analyser/blob/main/screen-capture/cam_permission_request.png)
+![Cam and location permission request](https://github.com/pillaiharish/threat-detection-analysis-tools/blob/main/golang-c-n-c/screen-capture/cam_permission_request.png)
+
 
 
 ## Image, latitude and longitue capture
 
-![Photo and location capture](https://github.com/pillaiharish/network-packet-analyser/blob/main/screen-capture/photo_and_location_captured_successfully.png)
+![Photo and location capture](https://github.com/pillaiharish/threat-detection-analysis-tools/blob/main/golang-c-n-c/screen-capture/photo_and_location_captured_successfully.png)
