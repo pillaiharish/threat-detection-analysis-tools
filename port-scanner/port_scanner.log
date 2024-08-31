@@ -1,0 +1,6 @@
+2024/08/31 18:51:14 Starting port scan...
+2024/08/31 18:51:14 Scanning IP: 192.168.0.126, Ports: 0-65535, Max Goroutines: 100
+2024/08/31 18:51:49 Open port 5000 found (Time: 8.070541ms)
+2024/08/31 18:51:51 Open port 7000 found (Time: 6.590291ms)
+2024/08/31 18:52:49 Open port 64752 found (Time: 16.121167ms)
+2024/08/31 18:52:50 Port scanning completed
