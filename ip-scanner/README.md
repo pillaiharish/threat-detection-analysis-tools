@@ -29,16 +29,11 @@ When an IP address is active, the program will print `IP <ip_address> is up`, in
 First, clone the repository to your local machine:
 
 ```bash
-harish $ git clone git@github.com:pillaiharish/threat-detection-analysis-tools.git
-harish $ cd threat-detection-analysis-tools/ip-scanner
 harish $ sudo go run main.go 
-Password:
-IP 192.168.1.1 is up
-IP 192.168.1.5 is up
-IP 192.168.1.75 is up
-IP 192.168.1.10 is up
-IP 192.168.1.76 is up
+IP 192.168.0.148 is up
+IP 192.168.0.160 is up
 Scan complete
+Note: If no IPs are show in output then no IPs found
 ```
 
 ## What "IP is up" Means
