@@ -1,6 +1,2 @@
-github.com/librespeed/speedtest v0.0.0-20200927184251-29a03c3afbe2 h1:hrrcdNv9pfhDYRL7NWaEYCRxOd/Dktl95vcC29pJGKU=
-github.com/librespeed/speedtest v0.0.0-20200927184251-29a03c3afbe2/go.mod h1:VaUfRk2tJ9qFGVU4BqjOgg3suo8oS3ellZ/cigddaL8=
-github.com/librespeed/speedtest v0.0.0-20241203133238-5cad53ea60e9 h1:1Suj3vykp0PosGgFnIKcXYKWotT/8R8eA1/mVygsraA=
-github.com/librespeed/speedtest v0.0.0-20241203133238-5cad53ea60e9/go.mod h1:VaUfRk2tJ9qFGVU4BqjOgg3suo8oS3ellZ/cigddaL8=
 github.com/showwin/speedtest-go v1.7.9 h1:5b3T3U3WSppVXFqsIqF1zdHRYKKVuPNpzFU71HnYNEY=
 github.com/showwin/speedtest-go v1.7.9/go.mod h1:uLgdWCNarXxlYsL2E5TOZpCIwpgSWnEANZp7gfHXHu0=
