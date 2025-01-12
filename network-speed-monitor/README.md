@@ -27,7 +27,13 @@ After Clone the repository:
 ## Access the frontend:
 http://localhost:8080/static/index.html
 
+## Access the backend logs:
+http://localhost:8080/api/logs/filtered
+
 ## API Endpoints
 GET /api/stats: Retrieve real-time stats (connectivity, upload/download speeds, latency).
 GET /api/logs/full: Access the full logs.
 GET /api/logs/filtered: Access the filtered logs.
+
+# Medium Blog
+https://medium.com/@harishpillai1994/network-speed-monitor-using-golang-2cac56a6910c 
