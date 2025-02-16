@@ -1,0 +1,26 @@
+harish $ go run main.go 8080 httpforever.com:80
+2025/02/16 16:00:49 TCP Proxy started. Listening on port 8080 and forwarding to httpforever.com:80
+2025/02/16 16:00:53 New connection: 127.0.0.1:51631 -> httpforever.com:80
+2025/02/16 16:00:53 [CLIENT] GET http://httpforever.com/ HTTP/1.1
+Host: httpforever.com
+User-Agent: Mozilla/5.0 
+Accept: text/html
+Accept-Language: en-US,en
+Accept-Encoding: gzip, 
+Referer: https://duckduckgo.com/
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+If-Modified-Since: Wed, 22 Mar 2023 14:54:48 GMT
+If-None-Match: W/"641b16b8-1404"
+Priority: u=0, i
+
+2025/02/16 16:00:53 [SERVER] HTTP/1.1 304 Not Modified
+Server: nginx/1.18.0 (Ubuntu)
+Date: Sun, 16 Feb 2025 10:30:53 GMT
+Last-Modified: Wed, 22 Mar 2023 14:54:48 GMT
+Connection: keep-alive
+ETag: "641b16b8-1404"
+Referrer-Policy: strict-origin-when-cross-origin
+X-Content-Type-Options: nosniff
+Feature-Policy: accelerometer 'none'; camera 'none'; geolocation 'none'; gyroscope 'none'; magnetometer 'none'; microphone 'none'; payment 'none'; usb 'none'
+Content-Security-Policy: default-src 'self'; script-src cdnjs.cloudflare.com 'self'; style-src cdnjs.cloudflare.com 'self' fonts.googleapis.com 'unsafe-inline'; font-src fonts.googleapis.com fonts.gstatic.com cdnjs.cloudflare.com; frame-ancestors 'none'; report-uri https://scotthelme.report-uri.com/r/d/csp/enforce
