@@ -1,65 +1,119 @@
 # Go IP Address Scanner
 
-A simple IP address scanner built with Go to scan a local network (such as your home Wi-Fi) and identify active devices by pinging each IP address in a specified range.
+A dependency-free (std-lib only) local-network device scanner. Unlike the old
+ICMP-based version, this uses **TCP connect probes**, so it runs **without
+`sudo`** and specifically identifies hosts that are *reachable* — routers that
+respond to a port, laptops with SSH running, printers exposing IPP, cameras
+serving RTSP, AirPlay speakers, etc. Phantom "route" addresses that never
+respond to anything simply don't appear, so the output is just real devices.
 
+## Features
 
-## Introduction
-
-This Go program allows you to scan a range of IP addresses on your local network and identify which devices are active by sending ICMP (ping) requests. It's a useful tool for monitoring your network and detecting any unauthorized devices.
-
-## How It Works
-
-The IP address scanner works by:
-
-1. Identifying the network range.
-2. Pinging each IP address within the range.
-3. Reporting which IP addresses are active (respond to the ping).
-
-When an IP address is active, the program will print `IP <ip_address> is up`, indicating that a device on your network is using that IP address.
+- **Multi-interface auto-detect.** Walks `net.Interfaces()`, selects every
+  active non-virtual IPv4 interface (skips loopback, `utun*`, `awdl*`, `llw*`,
+  `bridge`, `gif`, `stf`), and scans each one's subnet. So if you have Wi-Fi
+  (`en0`, e.g. `192.168.1.0/24`) and a wired USB-Ethernet peer (`en7`, e.g.
+  `10.0.0.0/30`), both networks are scanned in one run and reported under
+  separate per-interface section headers.
+- **Multi-port fingerprint.** Probes a configurable TCP port set per host
+  (default `22,80,443,554,5000,631,8080`). A host is reported if **any** port
+  accepts a connection, and the output lists which ports answered — making it
+  easy to tell SSH from a printer from a camera.
+- **Per-host identification.** For every live host it prints:
+  - IP address
+  - which ports answered
+  - reverse-DNS hostname (via `net.LookupAddr`)
+  - MAC address (from the system ARP cache, refreshed by an active UDP poke
+    if missing)
+  - vendor guess from an embedded OUI table (Apple, TP-Link, Asus, Netgear,
+    D-Link, Linksys, Amazon, Google, Sonos, Roku, Bose, Raspberry-Pi, Intel,
+    Realtek, Broadcom — enough to flag your Mac mini as `VENDOR Apple`).
+- **No device-type bias.** Phones, laptops, IoT, printers, routers, switches,
+  Raspberry Pis — anything that accepts a TCP connection on a probed port is
+  reported identically.
+- **Pure stdlib, zero cgo.** No more `dyld: missing LC_UUID load command`
+  crashes on current macOS; no `go-ping` dependency; builds with a plain
+  `go build`, runs unprivileged.
 
 ## Prerequisites
 
-- **Go (Golang)**: Ensure that Go is installed on your machine. You can download it from the [official Go website](https://golang.org/dl/).
-- **Superuser Permissions**: On most systems, sending ICMP packets (ping) requires elevated privileges.
+- **Go** (any reasonably recent 1.x; tested with go1.22.2 on darwin/arm64).
+
+That's it. No `sudo`, no third-party packages, no network privileges.
 
 ## Usage
 
-### Cloning the Repository
-
-First, clone the repository to your local machine:
-
 ```bash
-harish $ sudo go run main.go 
-IP 192.168.0.148 is up
-IP 192.168.0.160 is up
-Scan complete
-Note: If no IPs are show in output then no IPs found
+# Auto-detect every active interface and scan its subnet with the default port set
+go run main.go
+
+# Restrict to specific subnets (skips auto-detect)
+go run main.go -subnets 192.168.1.0/24,10.0.0.0/30
+
+# Probe only SSH, faster
+go run main.go -ports 22
+
+# Tune timeout and concurrency
+go run main.go -timeout 500ms -workers 128
 ```
 
-## What "IP is up" Means
+Flags:
 
-- **Device is Active**: It indicates that there is a device on the network that is actively using that IP address and is responding to ping requests.
-- **Network Reachability**: The IP address is reachable, meaning that the network infrastructure (routers, switches, etc.) can route traffic to and from this IP address correctly.
+| Flag        | Default                       | Meaning                                      |
+|-------------|-------------------------------|----------------------------------------------|
+| `-ports`    | `22,80,443,554,5000,631,8080` | comma-separated TCP ports to probe per host  |
+| `-subnets`  | (empty -> auto-detect)        | comma-separated CIDRs to scan                |
+| `-timeout`  | `800ms`                       | per-port `net.DialTimeout`                   |
+| `-workers`  | `64`                          | concurrent host-scan workers                 |
 
-## Clarifying the Concept
+## Sample output
 
-### IP Address
-An IP address is a unique identifier assigned to devices on a network. Each device (like your phone, computer, smart TV, etc.) connected to the network has an IP address.
+```
+$ go run main.go
+Discovering hosts across 3 interface(s) probing ports [22 80 443 554 5000 631 8080]
 
-### Ping Request
-A "ping" is a network utility used to test the reachability of a host on an IP network. It sends ICMP Echo Request packets to the target IP address and waits for an Echo Reply. If the target device responds, it means the device is active and reachable on the network.
+== en0    (Wi-Fi)      192.168.1.50/24 (my ip 192.168.1.50) - 254 targets ==
+-- reachable (a probed port answered) --
+IP 192.168.1.50      PORTS [5000]                    HOST -                          MAC a4:5e:60:11:22:33  VENDOR Apple
+-- ARP-known but no open port (live on L2, SSH/other services not listening) --
+IP 192.168.1.1       PORTS [none]                    HOST -                          MAC 74:da:88:aa:bb:cc  VENDOR TP-Link
+IP 192.168.1.42      PORTS [none]                    HOST -                          MAC 9e:b7:46:dd:ee:ff  VENDOR Apple
 
-### "IP is up"
-This phrase is shorthand for saying that the device associated with that IP address is "alive" or "reachable" because it responded to the ping request.
+== en7    (USB 10/100/1000 LAN) 10.0.0.1/30 (my ip 10.0.0.1) - 2 targets ==
+-- reachable (a probed port answered) --
+IP 10.0.0.1          PORTS [5000]                    HOST -                          MAC 3c:18:a0:11:22:33  VENDOR ASIX
 
-## Real-World Meaning
-If you see that "IP 192.168.1.5 is up" in the program output, it implies:
+== en7    (USB 10/100/1000 LAN) ARP-discovered peers (my ip -) - 1 targets ==
+-- ARP-known but no open port (live on L2, SSH/other services not listening) --
+IP 169.254.10.20     PORTS [none]                    HOST mac-mini.local             MAC 1c:f6:4c:11:22:33  VENDOR Apple
 
-- **Active Device**: A device (such as a computer, phone, IoT device, etc.) is connected to the network using the IP address 192.168.1.5.
-- **Network Presence**: The device is responding to network requests, which suggests it’s currently active and communicating on the network.
+Scan complete: 2 port-reachable host(s), 3 ARP-known-only candidate(s), across 3 interface(s)
+```
 
-If an IP address does not respond (i.e., the program does not print "IP <ip_address> is up"), it could mean:
+Two important things this output shows:
 
-- The IP address is not currently assigned to any device.
-- The device using that IP address is turned off or disconnected from the network.
-- The device or network firewall is blocking ICMP (ping) requests.
+1. **The wired Mac mini at `169.254.10.20` is detected by name** (`mac-mini.local`, vendor `Apple`), even though it's on a `169.254/16` link-local address that no configured subnet reaches, and even though it's not yet accepting SSH. The scanner harvests the system ARP table to find peers that exist on layer-2 but fall outside any subnet, so you don't miss them.
+2. **It's in the "ARP-known but no open port" section** — meaning the mini is alive on the wire but SSH isn't accepting connections. Enable Remote Login on the mini (System Settings → General → Sharing → Remote Login), then re-run; the mini will move into the "reachable" section and you can `ssh user@169.254.10.20` (or whichever IP it moves to).
+
+## Why two result sections per interface
+
+For each interface the scanner prints two groups:
+
+- **reachable** — a probed TCP port (default `22,80,443,554,5000,631,8080`) actually accepted a connection. These are hosts you can probably connect to.
+- **ARP-known but no open port** — the host was found in the system ARP table with a real MAC (so it's live at layer-2) but didn't answer any probed port. These are still real devices on your network; they're just not running anything we probed. This is how a Mac mini with Remote Login disabled, an iPhone, a smart speaker, etc. show up so you can spot them.
+
+## What "IP is up" used to mean vs now
+
+The old ICMP tool reported any host that replied to ping. The new tool:
+
+- Probes TCP ports — a "reachable" entry is something you can actually connect to.
+- Falls back to the ARP cache to surface layer-2-present hosts that didn't accept a TCP connection, so you don't miss sleeping or filtered devices — useful when "which IP belongs to my Mac mini" is the question.
+
+## Why the rewrite
+
+The original used `github.com/go-ping/ping`, which pulls in `CoreFoundation`
+via cgo. Go 1.22.2 emits that linkage in a way macOS 26's `dyld` rejects
+(`missing LC_UUID load command`), so `go run main.go` crashed instantly.
+Even with `CGO_ENABLED=0`, go-ping's unprivileged UDP fallback fails on
+current macOS (`sendto: no route to host`). Switching to stdlib TCP probes
+fixes both problems and gives an SSH-aware result in one stroke.
