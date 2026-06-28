@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Fingerprinting — Network Assessment</title>
+    <style>
+        :root { color-scheme: light dark; }
+        body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 0; padding: 24px; line-height: 1.45; }
+        h1 { font-size: 1.1rem; margin: 0 0 .25rem; }
+        .muted { color: #888; font-size: .85rem; }
+        .banner { background: #ffd; border: 1px solid #cc9; padding: 8px 12px; margin-bottom: 12px; border-radius: 4px; font-size: .85rem; }
+        @media (prefers-color-scheme: dark){ .banner { background:#332; border-color:#654; } }
+        .hash { font-size: 1.2rem; word-break: break-all; padding: 8px; background: rgba(127,127,127,.12); border-radius: 4px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+        td, th { text-align: left; padding: 4px 8px; border-bottom: 1px solid rgba(127,127,127,.25); vertical-align: top; }
+        th { width: 30%; font-weight: 600; color: #888; }
+        #status { margin: 12px 0; font-size: .85rem; }
+        .ok { color: #060; } .err { color: #900; }
+        @media (prefers-color-scheme: dark){ .ok{color:#6f6;} .err{color:#f66;} }
+    </style>
+</head>
+<body>
+    <h1>Browser Fingerprinting — Network Assessment</h1>
+    <div class="muted">Authorized assessment of the local network. Your browser fingerprint below is recorded to <code>client_info.txt</code> on the server for triage.</div>
+    <div class="banner">ℹ️ This page computes a stable fingerprint of your browser and reports it to the assessment server. It is for use on networks you are authorized to test.</div>
+
+    <div id="status">Collecting signals…</div>
+
+    <h2>Fingerprint hash</h2>
+    <div class="hash" id="fpHash">…</div>
+
+    <h2>Signals</h2>
+    <table id="signals"><tbody></tbody></table>
+
+<script>
+// ---- Collectors -----------------------------------------------------------
+async function uaDataHighEntropy() {
+    if (!navigator.userAgentData) return null;
+    try {
+        return await navigator.userAgentData.getHighEntropyValues(
+            ["architecture","bitness","model","platform","platformVersion","uaFullVersion","fullVersionList"}
+        );
+    } catch (e) { return null; }
+}
+
+function screenSignals() {
+    const s = screen || {};
+    return {
+        width: s.width || null,
+        height: s.height || null,
+        availWidth: s.availWidth || null,
+        availHeight: s.avHeight || null,
+        colorDepth: s.colorDepth || null,
+        pixelDepth: s.pixelDepth || null,
+        orientation: (s.orientation && s.orientation.type) || null,
+        devicePixelRatio: window.devicePixelRatio || null,
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight,
+        outerWidth: window.outerWidth,
+        outerHeight: window.outerHeight
+    };
+}
+
+function navigatorSignals(uahe) {
+    const n = navigator;
+    const conn = n.connection || n.mozConnection || n.webkitConnection || {};
+    return {
+        userAgent: n.userAgent || null,
+        platform: n.platform || null,
+        language: n.language || null,
+        languages: (n.languages && Array.from(n.languages)) || [],
+        hardwareConcurrency: n.hardwareConcurrency || null,
+        deviceMemory: (typeof n.deviceMemory !== "undefined") ? n.deviceMemory : null,
+        maxTouchPoints: n.maxTouchPoints || 0,
+        vendor: n.vendor || null,
+        doNotTrack: n.doNotTrack || null,
+        cookieEnabled: !!n.cookieEnabled,
+        pdfViewerEnabled: (typeof n.pdfViewerEnabled !== "undefined") ? n.pdfViewerEnabled : null,
+        userAgentData: uahe,
+        connection: { effectiveType: conn.effectiveType || null, rtt: conn.rtt || null, downlink: conn.downlink || null, saveData: conn.saveData || null },
+        plugins: (n.plugins ? Array.from(n.plugins).map(p => p.name) : [])
+    };
+}
+
+function timezoneSignals() {
+    try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+        return { timeZone: tz, offsetMin: new Date().getTimezoneOffset() };
+    } catch (e) { return { timeZone: null, offsetMin: null }; }
+}
+
+async function canvasFingerprint() {
+    try {
+        const c = document.createElement("canvas");
+        c.width = 280; c.height = 60;
+        const ctx = c.getContext("2d");
+        if (!ctx) return null;
+        ctx.textBaseline = "top";
+        ctx.font = "14px 'Arial'";
+        ctx.fillStyle = "#f60";
+        ctx.fillRect(125, 1, 62, 20);
+        ctx.fillStyle = "#069";
+        ctx.fillText("BrowserFP: 💧∠漢", 2, 15);
+        ctx.fillStyle = "rgba(102,204,0,0.7)";
+        ctx.fillText("BrowserFP: 💧∠漢", 4, 17);
+        return c.toDataURL("image/png");
+    } catch (e) { return null; }
+}
+
+async function webglFingerprint() {
+    try {
+        const c = document.createElement("canvas");
+        const gl = c.getContext("webgl") || c.getContext("experimental-webgl");
+        if (!gl) return null;
+        const ext = gl.getExtension("MOZ_debug") || gl.getExtension("WEBGL_debug_renderer_info");
+        const vendor = ext ? gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) : null;
+        const renderer = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : null;
+        const params = ["VENDOR","RENDERER","VERSION","SHADING_LANGUAGE_VERSION","MAX_TEXTURE_SIZE",
+                        "MAX_VIEWPORT_DIMS","MAX_RENDERBUFFER_SIZE","MAX_VERTEX_ATTRIBS",
+                        "MAX_TEXTURE_IMAGE_UNITS","MAX_COMBINED_TEXTURE_IMAGE_UNITS"]
+            .map(n => { try { return [n, String(gl.getParameter(gl[n]))]; } catch(e){ return [n,null]; } });
+        return { vendor, renderer, params };
+    } catch (e) { return null; }
+}
+
+async function audioFingerprint() {
+    try {
+        const AC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        if (!AC) return null;
+        const ac = new AC(1, 44100, 5000);
+        const osc = ac.createOscillator();
+        osc.type = "triangle";
+        osc.frequency.value = 1000;
+        const comp = ac.createDynamicsCompressor();
+        comp.threshold.value = -50;
+        comp.knee.value = 40;
+        comp.ratio.value = 12;
+        comp.attack.value = 0;
+        comp.release.value = 0.25;
+        osc.connect(comp); comp.connect(ac.destination);
+        osc.start(0);
+        const buf = await ac.startRendering();
+        const data = buf.getChannelData(0);
+        let sum = 0;
+        for (let i = 4500; i < 5000; i++) sum += Math.abs(data[i]);
+        return sum.toString();
+    } catch (e) { return null; }
+}
+
+function fontProbe() {
+    const baseFonts = ["monospace","sans-serif","serif"];
+    const testString = "mmmmmmmmmmlli";
+    const testSize = "72px";
+    const candidates = [
+        "Arial","Calibri","Cambria","Comic Sans MS","Consolas","Courier","Courier New",
+        "Georgia","Helvetica","Impact","Lucida Console","Microsoft Sans Serif","Palatino",
+        "Segoe UI","Tahoma","Times","Times New Roman","Trebuchet MS","Verdana",
+        "Andale Mono","Apple Color Emoji","Apple Color Emoji","Avenir","Baskerville",
+        "Bodoni 72","Bradley Hand","Brush Script MT","Chalkduster","Charcoal","Cochin",
+        "Copperplate","DejaVu Sans","Didot","Futura","Geneva","Gill Sans","Herculanum",
+        "Hoefler Text","Marker Felt","Menlo","Monaco","Noteworthy","Optima","Papyrus",
+        "PT Sans","Roboto","Rockwell","SF Pro","Skia","Snell Roundhand","Symbol","Ubuntu"
+    ];
+    const span = document.createElement("span");
+    span.style.fontSize = testSize;
+    span.style.position = "absolute";
+    span.style.left = "-9999px";
+    span.style.top = "-9999px";
+    span.textContent = testString;
+    document.body.appendChild(span);
+    const base = {};
+    baseFonts.forEach(f => {
+        span.style.fontFamily = f;
+        base[f] = { w: span.offsetWidth, h: span.offsetHeight };
+    });
+    const matched = [];
+    candidates.forEach(f => {
+        let isDiff = false;
+        baseFonts.forEach(b => {
+            span.style.fontFamily = `'${f}',${b}`;
+            if (span.offsetWidth !== base[b].w || span.offsetHeight !== base[b].h) isDiff = true;
+        });
+        if (isDiff) matched.push(f);
+    });
+    document.body.removeChild(span);
+    return matched;
+}
+
+// ---- Hashing --------------------------------------------------------------
+async function sha256Hex(s) {
+    const buf = new TextEncoder().encode(s);
+    const h = await crypto.subtle.digest("SHA-256", buf);
+    return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2,"0")).join("");
+}
+
+function stableStringify(o) {
+    if (o === null || typeof o !== "object") return JSON.stringify(o);
+    if (Array.isArray(o)) return "[" + o.map(stableStringify).join(",") + "]";
+    const keys = Object.keys(o).sort();
+    return "{" + keys.map(k => JSON.stringify(k)+":"+stableStringify(o[k])).join(",") + "}";
+}
+
+// ---- Main -----------------------------------------------------------------
+async function collectAll() {
+    const uahe = await uaDataHighEntropy();
+    const canvas = await canvasFingerprint();
+    const webgl = await webglFingerprint();
+    const audio = await audioFingerprint();
+    const fonts = fontProbe();
+    const ctx = {
+        ua: navigatorSignals(uahe),
+        screen: screenSignals(),
+        tz: timezoneSignals(),
+        canvas,
+        webgl,
+        audio,
+        fonts
+    };
+    const hashInput = stableStringify(ctx);
+    const fingerprintHash = await sha256Hex(hashInput);
+    return { ctx, fingerprintHash };
+}
+
+function row(tbody, key, val) {
+    const tr = document.createElement("tr");
+    const td1 = document.createElement("td"); td1.textContent = key;
+    const td2 = document.createElement("td");
+    const s = (val === null || val === undefined) ? "null"
+            : (typeof val === "object") ? JSON.stringify(val)
+            : String(val);
+    td2.textContent = s;
+    tr.appendChild(td1); tr.appendChild(td2);
+    tbody.appendChild(tr);
+}
+
+function renderSignals(ctx) {
+    const tbody = document.querySelector("#signals tbody");
+    const flat = (obj, prefix) => {
+        if (obj === null || obj === undefined) { row(tbody, prefix, "null"); return; }
+        if (typeof obj !== "object") { row(tbody, prefix, obj); return; }
+        if (Array.isArray(obj)) { row(tbody, prefix, obj.join(", ")); return; }
+        for (const k of Object.keys(obj)) flat(obj[k], prefix ? `${prefix}.${k}` : k);
+    };
+    flat(ctx, "");
+}
+
+async function main() {
+    const statusBar = document.getElementById("status");
+    const hashEl = document.getElementById("fpHash");
+    try {
+        const { ctx, fingerprintHash } = await collectAll();
+        hashEl.textContent = fingerprintHash;
+        renderSignals(ctx);
+        const data = { fingerprintHash, signals: ctx };
+        const res = await fetch("/store-info", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error("server returned " + res.status);
+        statusBar.textContent = "Recorded to server. hash=" + fingerprintHash.slice(0,16) + "…";
+        statusBar.className = "ok";
+    } catch (e) {
+        statusBar.textContent = "Error: " + e.message;
+        statusBar.className = "err";
+    }
+}
+
+if (crypto && crypto.subtle) main();
+else {
+    document.getElementById("status").textContent = "Error: SubtleCrypto unavailable (need https or localhost).";
+    document.getElementById("status").className = "err";
+}
+</script>
+</body>
+</html>

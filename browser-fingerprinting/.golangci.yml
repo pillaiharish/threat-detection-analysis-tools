@@ -1,0 +1,21 @@
+version: "1.62"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - revive
+    - gosec
+    - ineffassign
+    - staticcheck
+    - unused
+
+linters-settings:
+  gosec:
+    excludes:
+      # G204: subprocess with variable arg. We intentionally exec the
+      # fingerprint script with a sanitized IP argv element — no shell.
+      - G204
