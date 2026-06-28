@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ip-logger-ingress
+spec:
+  ingressClassName: gce  # Use GCE ingress
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ip-logger-service
+            port:
+              number: 80

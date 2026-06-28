@@ -184,3 +184,10 @@ browser-fingerprinting/scripts/client_info.txt
 *.test
 *.out
 coverage.out
+
+# ------------------------------------------------------------------
+# gcp-ip-logger local build artifacts
+# ------------------------------------------------------------------
+gcp-ip-logger/gcp-ip-logger
+gcp-ip-logger/ip-logger
+gcp-ip-logger/server

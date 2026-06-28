@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Security Awareness Training</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            text-align: center;
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        }
+        .banner {
+            background-color: #003366;
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .notice {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #444;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+        .notice strong {
+            color: #003366;
+        }
+        .recorded {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #e8f0f8;
+            border: 1px solid #003366;
+            border-radius: 6px;
+            font-size: 15px;
+            color: #003366;
+            margin-top: 8px;
+        }
+        .footer {
+            margin-top: 32px;
+            font-size: 13px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="banner">Authorized Security Awareness Training</div>
+
+        <div class="notice">
+            <p>This page is part of an <strong>authorized security awareness
+            training exercise</strong> conducted by your organization's
+            security team.</p>
+
+            <p>When you loaded this page, the server recorded your
+            <strong>public IP address</strong> and the time of your visit.
+            This simulates how a real attacker might silently capture visitor
+            information through a crafted link.</p>
+
+            <p><strong>What to take away:</strong> be cautious about clicking
+            links from unknown sources &mdash; merely loading a page can expose
+            your network identity to the server operator.</p>
+
+            <p>If you received this link as part of a phishing simulation, no
+            personal data was collected beyond your IP address and the
+            timestamp of your visit. Contact your security team with any
+            questions.</p>
+        </div>
+
+        <div class="recorded" id="status">Your IP address has been recorded.</div>
+
+        <div class="footer">
+            Authorized use only &mdash; Security Awareness Training
+        </div>
+    </div>
+
+    <script>
+        // Beacon the visit to the server. The server derives the IP from
+        // the TCP connection (or X-Forwarded-For behind the load balancer),
+        // so we do NOT send any IP data from the client. We only send the
+        // timestamp so both sides agree on when the visit occurred.
+        fetch("/log-ip", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ timestamp: new Date().toISOString() }),
+        }).catch(function () {
+            document.getElementById("status").textContent =
+                "Visit recorded (refresh may be needed).";
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ip-logger
+  labels:
+    app: ip-logger
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ip-logger
+  template:
+    metadata:
+      labels:
+        app: ip-logger
+    spec:
+      containers:
+      - name: ip-logger
+        # replace YOUR_GCP_PROJECT_ID with your GCP project ID
+        image: gcr.io/YOUR_GCP_PROJECT_ID/ip-logger:v1
+        ports:
+        - containerPort: 8080
+        env:
+        - name: ADMIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: ip-logger-secret
+              key: admin-token
+        - name: TRUSTED_PROXY
+          value: "130.211.0.0/22,35.191.0.0/16"
+        - name: LOG_NAME
+          value: "ip-logger"
+        - name: RATE_LIMIT_RPS
+          value: "1"
+        - name: RATE_LIMIT_BURST
+          value: "3"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "64Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ip-logger-service
+spec:
+  selector:
+    app: ip-logger
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer
