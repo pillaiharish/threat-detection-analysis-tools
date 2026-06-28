@@ -191,3 +191,9 @@ coverage.out
 gcp-ip-logger/gcp-ip-logger
 gcp-ip-logger/ip-logger
 gcp-ip-logger/server
+
+# ------------------------------------------------------------------
+# port-scanner local build artifacts + runtime log
+# ------------------------------------------------------------------
+port-scanner/port-scanner
+port-scanner/port_scanner.log
